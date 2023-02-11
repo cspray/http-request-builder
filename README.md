@@ -1,6 +1,6 @@
 # Http Request Builder
 
-A library to fluently create [amphp/http-server](https://github.com/amphp/http-server) Request objects.
+A library to fluently create [amphp/http-client](https://github.com/amphp/http-client) Request objects.
 
 ## Installation
 
@@ -20,4 +20,6 @@ use Cspray\HttpRequestBuilder\RequestBuilder;
 $request = RequestBuilder::withJsonBody([
     'three words' => 'enthusiastic,positivity,clashing'
 ])->post('https://api.example.com');
+
+\Amp\Http\Client\HttpClientBuilder::buildDefault()->request($request);
 ```
