@@ -1,0 +1,20 @@
+name: 'Unit Tests'
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  continuous-integration:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Composer Install
+        uses: php-actions/composer@v6
+      - name: Tests
+        uses: php-actions/phpunit@v2
