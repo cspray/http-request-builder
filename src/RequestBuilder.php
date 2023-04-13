@@ -4,10 +4,10 @@ namespace Cspray\HttpRequestBuilder;
 
 use Amp\ByteStream\ReadableBuffer;
 use Amp\ByteStream\ReadableStream;
-use Amp\Http\Client\Body\FormBody;
-use Amp\Http\Client\Body\JsonBody;
+use Amp\Http\Client\BufferedContent;
+use Amp\Http\Client\Form;
+use Amp\Http\Client\HttpContent;
 use Amp\Http\Client\Request;
-use Amp\Http\Client\RequestBody;
 use Psr\Http\Message\UriInterface;
 
 final class RequestBuilder {
@@ -20,11 +20,11 @@ final class RequestBuilder {
         return self::createFluentRequestBuilder()->setHeaders([$name => $value]);
     }
 
-    public static function withJsonBody(array|JsonBody $json) : FluentRequestBuilder {
+    public static function withJsonBody(array $json) : FluentRequestBuilder {
         return self::createFluentRequestBuilder()->withJsonBody($json);
     }
 
-    public static function withFormBody(array|FormBody $formData) : FluentRequestBuilder {
+    public static function withFormBody(Form $formData) : FluentRequestBuilder {
         return self::createFluentRequestBuilder()->withFormBody($formData);
     }
 
@@ -73,7 +73,7 @@ final class RequestBuilder {
 
             private array $headers = [];
 
-            private RequestBody|string $requestBody = '';
+            private HttpContent|string $requestBody = '';
 
             public function setHeaders(array $headers) : FluentRequestBuilder {
                 $clone = clone $this;
@@ -93,30 +93,24 @@ final class RequestBuilder {
                 return $clone;
             }
 
-            public function withJsonBody(array|JsonBody $body) : FluentRequestBuilder {
+            public function withJsonBody(array $body) : FluentRequestBuilder {
                 $clone = clone $this;
                 if (is_array($body)) {
-                    $body = new JsonBody($body);
+                    $body = BufferedContent::fromString(json_encode($body), 'application/json; charset=utf-8');
                 }
                 $clone->requestBody = $body;
                 return $clone;
             }
 
-            public function withFormBody(array|FormBody $body) : FluentRequestBuilder {
+            public function withFormBody(Form $body) : FluentRequestBuilder {
                 $clone = clone $this;
-                if (is_array($body)) {
-                    $formBody = new FormBody();
-                    $formBody->addFields($body);
-                } else {
-                    $formBody = $body;
-                }
-                $clone->requestBody = $formBody;
+                $clone->requestBody = $body;
                 return $clone;
             }
 
             public function withBody(string $body, string $contentType = 'text/plain') : FluentRequestBuilder {
                 $clone = clone $this;
-                $clone->requestBody = new class($body, $contentType) implements RequestBody {
+                $clone->requestBody = new class($body, $contentType) implements HttpContent {
 
                     public function __construct(
                         private readonly string $body,
@@ -129,12 +123,17 @@ final class RequestBuilder {
                         ];
                     }
 
-                    public function createBodyStream() : ReadableStream {
+                    public function getContent() : ReadableStream {
                         return new ReadableBuffer($this->body);
                     }
 
-                    public function getBodyLength() : ?int {
+                    public function getContentLength() : ?int {
+                        // TODO: Implement getContentLength() method.
                         return strlen($this->body);
+                    }
+
+                    public function getContentType() : ?string {
+                        return $this->contentType;
                     }
                 };
                 return $clone;
@@ -231,8 +230,7 @@ final class RequestBuilder {
             }
 
             private function getAllHeaders() : array {
-                $bodyHeaders = $this->requestBody instanceof RequestBody ? $this->requestBody->getHeaders() : [];
-                return array_merge([], $this->headers, $bodyHeaders);
+                return $this->headers;
             }
         };
     }

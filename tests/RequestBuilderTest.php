@@ -2,8 +2,8 @@
 
 namespace Cspray\HttpRequestBuilder\Tests;
 
-use Amp\Http\Client\Body\FormBody;
-use Amp\Http\Client\Body\JsonBody;
+use Amp\Http\Client\Form;
+use Amp\Http\Client\Request;
 use Cspray\HttpRequestBuilder\RequestBuilder;
 use PHPUnit\Framework\TestCase;
 
@@ -33,8 +33,9 @@ final class RequestBuilderTest extends TestCase {
         $method = strtolower($httpMethod);
         $subject = RequestBuilder::$method('http://' . $method . '.example.com');
 
+        self::assertInstanceOf(Request::class, $subject);
         self::assertSame([], $subject->getHeaders());
-        self::assertNull($subject->getBody()->createBodyStream()->read());
+        self::assertNull($subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com', (string) $subject->getUri());
     }
@@ -49,8 +50,9 @@ final class RequestBuilderTest extends TestCase {
             'HeaderB' => 'bar'
         ])->$method('http://' . $method . '.example.com/with-headers');
 
+        self::assertInstanceOf(Request::class, $subject);
         self::assertSame([['HeaderA', 'foo'], ['HeaderB', 'bar']], $subject->getHeaderPairs());
-        self::assertNull($subject->getBody()->createBodyStream()->read());
+        self::assertNull($subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-headers', (string) $subject->getUri());
     }
@@ -67,8 +69,9 @@ final class RequestBuilderTest extends TestCase {
             'HeaderC' => 'baz'
         ])->$method('http://' . $method . '.example.com/with-extra-headers');
 
+        self::assertInstanceOf(Request::class, $subject);
         self::assertSame([['HeaderA', 'foo'], ['HeaderB', 'bar'], ['HeaderC', 'baz']], $subject->getHeaderPairs());
-        self::assertNull($subject->getBody()->createBodyStream()->read());
+        self::assertNull($subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-extra-headers', (string) $subject->getUri());
     }
@@ -84,8 +87,9 @@ final class RequestBuilderTest extends TestCase {
         ])->setHeader('HeaderB', 'Mack')
             ->$method('http://' . $method . '.example.com/spazz');
 
+        self::assertInstanceOf(Request::class, $subject);
         self::assertSame([['HeaderA', 'Harry'], ['HeaderB', 'Mack']], $subject->getHeaderPairs());
-        self::assertNull($subject->getBody()->createBodyStream()->read());
+        self::assertNull($subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/spazz', (string) $subject->getUri());
     }
@@ -98,8 +102,9 @@ final class RequestBuilderTest extends TestCase {
         $subject = RequestBuilder::withHeader('HeaderA', 'a value')
             ->$method('http://' . $method . '.example.com/with-header');
 
+        self::assertInstanceOf(Request::class, $subject);
         self::assertSame([['HeaderA', 'a value']], $subject->getHeaderPairs());
-        self::assertNull($subject->getBody()->createBodyStream()->read());
+        self::assertNull($subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-header', (string) $subject->getUri());
     }
@@ -116,13 +121,14 @@ final class RequestBuilderTest extends TestCase {
             ]
         ])->$method('http://' . $method . '.example.com/with-json-body-array');
 
-        self::assertSame([['content-type', 'application/json; charset=utf-8']], $subject->getHeaderPairs());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame('application/json; charset=utf-8', $subject->getBody()->getContentType());
         self::assertSame(json_encode([
             'foo' => 'bar',
             'bar' => [
                 'baz' => 42
             ]
-        ], JSON_THROW_ON_ERROR), $subject->getBody()->createBodyStream()->read());
+        ], JSON_THROW_ON_ERROR), $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-json-body-array', (string) $subject->getUri());
     }
@@ -136,10 +142,12 @@ final class RequestBuilderTest extends TestCase {
             ->withJsonBody(['foo' => 'bar'])
             ->$method('http://' . $method . '.example.com/with-json-body-headers');
 
-        self::assertSame([['HeaderA', 'whatever/whatever'], ['content-type', 'application/json; charset=utf-8']], $subject->getHeaderPairs());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame([['HeaderA', 'whatever/whatever']], $subject->getHeaderPairs());
+        self::assertSame('application/json; charset=utf-8', $subject->getBody()->getContentType());
         self::assertSame(json_encode([
             'foo' => 'bar',
-        ], JSON_THROW_ON_ERROR), $subject->getBody()->createBodyStream()->read());
+        ], JSON_THROW_ON_ERROR), $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-json-body-headers', (string) $subject->getUri());
     }
@@ -153,10 +161,11 @@ final class RequestBuilderTest extends TestCase {
             ->withJsonBody(['foo' => 'bar'])
             ->$method('http://' . $method . '.example.com/with-json-body-headers');
 
-        self::assertSame([['content-type', 'application/json; charset=utf-8']], $subject->getHeaderPairs());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame('application/json; charset=utf-8', $subject->getBody()->getContentType());
         self::assertSame(json_encode([
             'foo' => 'bar',
-        ], JSON_THROW_ON_ERROR), $subject->getBody()->createBodyStream()->read());
+        ], JSON_THROW_ON_ERROR), $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-json-body-headers', (string) $subject->getUri());
     }
@@ -164,96 +173,19 @@ final class RequestBuilderTest extends TestCase {
     /**
      * @dataProvider httpMethodProvider
      */
-    public function testWithJsonBodyAsJsonBody(string $httpMethod) : void {
-        $method = strtolower($httpMethod);
-        $subject = RequestBuilder::withJsonBody(new JsonBody(['foo' => 'baz']))
-            ->$method('http://' . $method . '.example.com/with-json-body-json-body');
-
-        self::assertSame([['content-type', 'application/json; charset=utf-8']], $subject->getHeaderPairs());
-        self::assertSame(json_encode([
-            'foo' => 'baz',
-        ], JSON_THROW_ON_ERROR), $subject->getBody()->createBodyStream()->read());
-        self::assertSame($httpMethod, $subject->getMethod());
-        self::assertSame('http://' . $method . '.example.com/with-json-body-json-body', (string) $subject->getUri());
-    }
-
-    /**
-     * @dataProvider httpMethodProvider
-     */
-    public function testWithJsonBodyAddContentHeadersAfterDoesNotOverride(string $httpMethod) : void {
-        $method = strtolower($httpMethod);
-        $subject = RequestBuilder::withJsonBody(new JsonBody(['foo' => 'baz']))
-            ->setHeader('Content-Type', 'text/plain')
-            ->$method('http://' . $method . '.example.com/with-json-body-json-body');
-
-        self::assertSame([['content-type', 'application/json; charset=utf-8']], $subject->getHeaderPairs());
-        self::assertSame(json_encode([
-            'foo' => 'baz',
-        ], JSON_THROW_ON_ERROR), $subject->getBody()->createBodyStream()->read());
-        self::assertSame($httpMethod, $subject->getMethod());
-        self::assertSame('http://' . $method . '.example.com/with-json-body-json-body', (string) $subject->getUri());
-    }
-
-    /**
-     * @dataProvider httpMethodProvider
-     */
-    public function testWithFormBodyAsArrayHasCorrectHeadersAndBody(string $httpMethod) : void {
-        $method = strtolower($httpMethod);
-        $subject = RequestBuilder::withFormBody([
-            'foo' => 'bar',
-            'bar' => '42'
-        ])->$method('http://' . $method . '.example.com/with-form-body-array');
-
-        self::assertSame([['Content-Type', 'application/x-www-form-urlencoded']], $subject->getHeaderPairs());
-        self::assertSame('foo=bar&bar=42', $subject->getBody()->createBodyStream()->read());
-        self::assertSame($httpMethod, $subject->getMethod());
-        self::assertSame('http://' . $method . '.example.com/with-form-body-array', (string) $subject->getUri());
-    }
-
-    /**
-     * @dataProvider httpMethodProvider
-     */
     public function testWithHeaderChainedToWithFormBodyDoesNotOverwriteHeaders(string $httpMethod) : void {
         $method = strtolower($httpMethod);
+        $form = new Form();
+        $form->addText('foo', 'bar');
         $subject = RequestBuilder::withHeaders(['HeaderA' => 'whatever/whatever'])
-            ->withFormBody(['foo' => 'bar'])
+            ->withFormBody($form)
             ->$method('http://' . $method . '.example.com/with-form-body-headers');
 
-        self::assertSame([['HeaderA', 'whatever/whatever'], ['Content-Type', 'application/x-www-form-urlencoded']], $subject->getHeaderPairs());
-        self::assertSame('foo=bar', $subject->getBody()->createBodyStream()->read());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame([['HeaderA', 'whatever/whatever']], $subject->getHeaderPairs());
+        self::assertSame('foo=bar', $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-form-body-headers', (string) $subject->getUri());
-    }
-
-    /**
-     * @dataProvider httpMethodProvider
-     */
-    public function testWithHeaderChainedToWithFormBodyDoesOverwriteContentType(string $httpMethod) : void {
-        $method = strtolower($httpMethod);
-        $subject = RequestBuilder::withHeaders(['Content-Type' => 'text/plain'])
-            ->withFormBody(['foo' => 'bar'])
-            ->$method('http://' . $method . '.example.com/with-form-body-headers');
-
-        self::assertSame([['Content-Type', 'application/x-www-form-urlencoded']], $subject->getHeaderPairs());
-        self::assertSame('foo=bar', $subject->getBody()->createBodyStream()->read());
-        self::assertSame($httpMethod, $subject->getMethod());
-        self::assertSame('http://' . $method . '.example.com/with-form-body-headers', (string) $subject->getUri());
-    }
-
-    /**
-     * @dataProvider httpMethodProvider
-     */
-    public function testWithFormBodyAsFormBody(string $httpMethod) : void {
-        $method = strtolower($httpMethod);
-        $body = new FormBody();
-        $body->addFields(['foo' => 'baz']);
-        $subject = RequestBuilder::withFormBody($body)
-            ->$method('http://' . $method . '.example.com/with-form-body-form-body');
-
-        self::assertSame([['Content-Type', 'application/x-www-form-urlencoded']], $subject->getHeaderPairs());
-        self::assertSame('foo=baz', $subject->getBody()->createBodyStream()->read());
-        self::assertSame($httpMethod, $subject->getMethod());
-        self::assertSame('http://' . $method . '.example.com/with-form-body-form-body', (string) $subject->getUri());
     }
 
     /**
@@ -261,14 +193,15 @@ final class RequestBuilderTest extends TestCase {
      */
     public function testWithFormBodyAddContentHeadersAfterDoesNotOverride(string $httpMethod) : void {
         $method = strtolower($httpMethod);
-        $body = new FormBody();
-        $body->addFields(['foo' => 'baz']);
+        $body = new Form();
+        $body->addText('foo', 'baz');
         $subject = RequestBuilder::withFormBody($body)
             ->setHeader('Content-Type', 'text/plain')
             ->$method('http://' . $method . '.example.com/with-form-body-form-body');
 
-        self::assertSame([['Content-Type', 'application/x-www-form-urlencoded']], $subject->getHeaderPairs());
-        self::assertSame('foo=baz', $subject->getBody()->createBodyStream()->read());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame('application/x-www-form-urlencoded', $subject->getBody()->getContentType());
+        self::assertSame('foo=baz', $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-form-body-form-body', (string) $subject->getUri());
     }
@@ -281,8 +214,9 @@ final class RequestBuilderTest extends TestCase {
         $subject = RequestBuilder::withBody("Just a spazz, y'all.")
             ->$method('http://' . $method . '.example.com/with-body');
 
-        self::assertSame([['Content-Type', 'text/plain']], $subject->getHeaderPairs());
-        self::assertSame('Just a spazz, y\'all.', $subject->getBody()->createBodyStream()->read());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame('text/plain', $subject->getBody()->getContentType());
+        self::assertSame('Just a spazz, y\'all.', $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-body', (string) $subject->getUri());
     }
@@ -296,25 +230,12 @@ final class RequestBuilderTest extends TestCase {
             ->withBody('<!DOCTYPE html><html></html>', 'text/html')
             ->$method('http://' . $method . '.example.com/with-html-body');
 
-        self::assertSame([['HeaderA', 'whatever/whatever'], ['Content-Type', 'text/html']], $subject->getHeaderPairs());
-        self::assertSame('<!DOCTYPE html><html></html>', $subject->getBody()->createBodyStream()->read());
+        self::assertInstanceOf(Request::class, $subject);
+        self::assertSame([['HeaderA', 'whatever/whatever']], $subject->getHeaderPairs());
+        self::assertSame('text/html', $subject->getBody()->getContentType());
+        self::assertSame('<!DOCTYPE html><html></html>', $subject->getBody()->getContent()->read());
         self::assertSame($httpMethod, $subject->getMethod());
         self::assertSame('http://' . $method . '.example.com/with-html-body', (string) $subject->getUri());
-    }
-
-    /**
-     * @dataProvider httpMethodProvider
-     */
-    public function testWithHeaderChainedToWithBodyDoesOverwriteContentType(string $httpMethod) : void {
-        $method = strtolower($httpMethod);
-        $subject = RequestBuilder::withHeaders(['Content-Type' => 'text/plain'])
-            ->withBody('1,2,3', 'text/csv')
-            ->$method('http://' . $method . '.example.com/with-csv-body');
-
-        self::assertSame([['Content-Type', 'text/csv']], $subject->getHeaderPairs());
-        self::assertSame('1,2,3', $subject->getBody()->createBodyStream()->read());
-        self::assertSame($httpMethod, $subject->getMethod());
-        self::assertSame('http://' . $method . '.example.com/with-csv-body', (string) $subject->getUri());
     }
 
 }
